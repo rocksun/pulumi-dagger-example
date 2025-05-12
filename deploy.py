@@ -2,6 +2,8 @@ import os
 import sys
 import anyio
 import dagger
+from dotenv import load_dotenv
+import pulumi
 from pulumi import automation as auto
 from pulumi_aws import s3
 
@@ -21,34 +23,45 @@ async def create_and_deploy_infrastructure():
                 "ManagedBy": "Pulumi",
             }
         )
-        return {
-            "bucket_name": bucket.id,
-            "website_url": bucket.website_endpoint,
-        }
+        pulumi.export("bucket_id", bucket.id)
+        pulumi.export("bucket_website_endpoint", bucket.website_endpoint)
 
     # 配置 Pulumi 自动化 API
     stack_name = "dev"
     project_name = "dagger-pulumi-demo"
     
-    # 创建或选择 Pulumi 栈
-    stack = await auto.create_or_select_stack(
+    # 配置 Pulumi backend
+    s3_backend_bucket = os.environ.get("PULUMI_BACKEND_BUCKET", "my-pulumi-state-bucket")
+    backend_url = f"s3://{s3_backend_bucket}/{project_name}/{stack_name}?region=ap-southeast-1&awssdk=v"
+    
+    # 创建工作区配置
+    workspace_settings = auto.LocalWorkspaceOptions(
+        project_settings=auto.ProjectSettings(
+            name=project_name,
+            runtime="python",
+            backend=auto.ProjectBackend(backend_url)
+        )
+    )
+    
+    # 创建或选择 Pulumi 栈，使用自定义的工作区设置
+    stack = auto.create_or_select_stack(
         stack_name=stack_name,
         project_name=project_name,
         program=pulumi_program,
+        opts=workspace_settings
     )
     
     # 设置 AWS 区域
-    await stack.set_config("aws:region", auto.ConfigValue("us-west-2"))
+    stack.set_config("aws:region", auto.ConfigValue(os.environ.get("AWS_DEFAULT_REGION", "")))
     
     print("开始部署基础设施...")
     
     # 部署栈
-    up_result = await stack.up()
+    up_result = stack.up()
+
+    print(up_result.outputs.get("bucket_id").value, up_result.outputs.get("bucket_website_endpoint").value)
     
-    website_url = up_result.outputs["website_url"].value
-    bucket_name = up_result.outputs["bucket_name"].value
-    
-    return bucket_name, website_url
+    return up_result.outputs.get("bucket_id").value, up_result.outputs.get("bucket_website_endpoint").value
 
 
 async def dagger_pipeline(bucket_name):
@@ -81,9 +94,9 @@ async def dagger_pipeline(bucket_name):
             .with_directory("/website", build_dir)
             .with_env_variable("AWS_ACCESS_KEY_ID", os.environ.get("AWS_ACCESS_KEY_ID", ""))
             .with_env_variable("AWS_SECRET_ACCESS_KEY", os.environ.get("AWS_SECRET_ACCESS_KEY", ""))
-            .with_env_variable("AWS_DEFAULT_REGION", os.environ.get("AWS_SECRET_ACCESS_KEY", ""))
+            .with_env_variable("AWS_DEFAULT_REGION", os.environ.get("AWS_DEFAULT_REGION", ""))
             .with_exec([
-                "s3", "sync", 
+                "aws","s3", "sync", 
                 "/website", 
                 f"s3://{bucket_name}", 
                 "--delete", 
@@ -95,6 +108,8 @@ async def dagger_pipeline(bucket_name):
 
 async def main():
     """主函数，协调 Pulumi 和 Dagger 的工作流程"""
+    # 加载环境变量
+    load_dotenv()
     
     # 步骤 1: 使用 Pulumi 创建基础设施
     print("正在使用 Pulumi 创建 AWS 基础设施...")

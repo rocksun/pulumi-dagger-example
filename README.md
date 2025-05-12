@@ -43,4 +43,45 @@ uv --version
 
 注意：执行完安装命令后，可能需要重新打开终端或运行 `source ~/.bashrc` 使环境变量生效。
 
+## Install Pulumi
+
+```py
+# Linux
+curl -fsSL https://get.pulumi.com | sh
+```
+
+## Install Docker
+
+..
+
+## Install Dagger
+
+...
+
+## Install AWS CLI
+
+Install AWS CLI:
+
+```
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+## Config AWS CLI ENV:
+
+Create .env file with content:
+
+```
+AWS_ACCESS_KEY_ID="你的AWS访问密钥ID"
+AWS_SECRET_ACCESS_KEY="你的AWS秘密访问密钥"
+AWS_ACCESS_KEY_IDWS_DEFAULT_REGION="ap-southeast-1"
+```
+
 ## Init Project
+
+Add dependenies:
+
+```
+uv add dagger-io pulumi pulumi-aws anyio
+```

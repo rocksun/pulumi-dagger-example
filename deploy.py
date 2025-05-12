@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import pulumi
 from pulumi import automation as auto
 from pulumi_aws import s3
+import json
 
 
 async def create_and_deploy_infrastructure():
@@ -23,9 +24,33 @@ async def create_and_deploy_infrastructure():
                 "ManagedBy": "Pulumi",
             }
         )
+
+        public_access_block = s3.BucketPublicAccessBlock("public-access-block",
+            bucket=bucket.id,
+            block_public_acls=False,
+            block_public_policy=False,
+            ignore_public_acls=False,
+            restrict_public_buckets=False
+        )
+
+        # 添加允许公共读取的存储桶策略
+        bucket_policy = s3.BucketPolicy("bucket-policy",
+            bucket=bucket.id,
+            policy=bucket.id.apply(lambda id: json.dumps({
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{id}/*"]
+                }]
+            }))
+        )
+
         pulumi.export("bucket_id", bucket.id)
         pulumi.export("bucket_website_endpoint", bucket.website_endpoint)
 
+    
     # 配置 Pulumi 自动化 API
     stack_name = "dev"
     project_name = "dagger-pulumi-demo"

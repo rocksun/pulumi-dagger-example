@@ -85,3 +85,11 @@ Add dependenies:
 ```
 uv add dagger-io pulumi pulumi-aws anyio
 ```
+
+## 注意
+
+如果依然有权限问题，需要设置：
+
+```
+此账户的“屏蔽公共访问权限”设置
+```

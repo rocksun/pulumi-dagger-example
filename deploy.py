@@ -99,8 +99,7 @@ async def dagger_pipeline(bucket_name):
                 "aws","s3", "sync", 
                 "/website", 
                 f"s3://{bucket_name}", 
-                "--delete", 
-                "--acl", "public-read"
+                "--delete"
             ])
             .stdout()
         )
